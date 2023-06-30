@@ -110,9 +110,9 @@ else
                 <div class="d-flex flex-column flex-grow-1 w-100">
                     @foreach (var msg in conversation.Messages)
                     {
-                        <div class="d-flex w-100 @(msg.User.UserName != username ? "justify-content-start" : "justify-content-end")">
-                            <div class="d-flex flex-column w-25">
-                                <span class="text-white ">@msg.Content // @msg.User.UserName</span>
+                        <div class="d-flex w-100 @(msg?.User.UserName != username ? "justify-content-start" : "justify-content-end")">
+                            <div class="d-flex flex-column w-25 @(msg?.User.UserName != username ? "align-items-start" : "align-items-end")">
+                                <span class="text-white ">@msg.Content</span>
                             </div>
                         </div>
                     }
@@ -143,7 +143,7 @@ else
     private FullConversationDto? conversation = null;
     private HubConnection mainConnection;
     private HubConnection? conversationConnection;
-    private IEnumerable<ConversationDto> conversations = new List<ConversationDto>();
+    private List<ConversationDto> conversations = new List<ConversationDto>();
     private AddFriendForm addFriendForm = new AddFriendForm();
     private MessageForm messageForm = new MessageForm();
     private EditContext? editContextAddFriend;
@@ -175,7 +175,7 @@ else
         }
         try
         {
-            await conversationConnection.SendAsync("CreateMessage", username, addFriendForm.Username, messageForm.Content, conversationId);
+            await conversationConnection.SendAsync("CreateMessage", username, conversation.Username, messageForm.Content, conversationId);
         }
         catch (Exception e)
         {
@@ -194,12 +194,12 @@ else
         await mainConnection.StartAsync();
         mainConnection.On<IEnumerable<ConversationDto>>("GetConversations", (convs) =>
         {
-            conversations = convs;
+            conversations = new List<ConversationDto>(convs);
             StateHasChanged();
         });
         mainConnection.On<ConversationDto>("CreateConversation", (conv) =>
         {
-            conversations.Append(conv);
+            conversations.Add(conv);
             StateHasChanged();
         });
         mainConnection.On<Message, int>("CreateMessage", (message, convId) =>
@@ -225,7 +225,7 @@ else
         });
         conversationConnection.On<Message>("CreateMessage", (msg) =>
         {
-            conversation.Messages.Append(msg);
+            conversation.Messages.Add(msg);
             StateHasChanged();
         });
     }
