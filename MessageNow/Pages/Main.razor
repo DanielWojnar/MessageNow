@@ -1,0 +1,333 @@
+﻿@page "/Main"
+@using Microsoft.AspNetCore.SignalR.Client;
+@using MessageNow.Models;
+@using MessageNow.Dtos;
+@using Blazored.LocalStorage;
+@using MessageNow.Services;
+@inject ILocalStorageService _localStorage
+@inject IHttpClientService _http
+@inject NavigationManager _navigationManager
+
+@if (optionsModal)
+{
+    <div class="modal show fade d-block" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Options</h5>
+                    <button type="button" class="btn" @onclick="closeOptionsModal">
+                        <span class="h3" aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body d-flex justify-content-center">
+                    <button class="btn btn-danger w-100" @onclick="Logout">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@if (addFriendModal)
+{
+    <div class="modal show fade d-block" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Start Conversation</h5>
+                    <button type="button" class="btn" @onclick="closeAddFriendModal">
+                        <span class="h3" aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body d-flex justify-content-center">
+                    <EditForm EditContext="@editContextAddFriend" OnSubmit="@HandleSubmitAddFriend" class="w-100 justify-content-center d-flex flex-column">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+                        <div class="form-group w-100 py-1">
+                            <label for="InputUsername">Username</label>
+                            <InputText @bind-Value="addFriendForm.Username" type="text" class="form-control shadow-none" id="InputUsername" aria-describedby="usernameHelper" placeholder="Friend username..." />
+                            <small id="usernameHelper" class="form-text text-muted">Required</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3 mb-1 shadow-none">Create</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@if (!conversationView)
+{
+    <div class="d-flex flex-grow-1 h-100">
+        <div class="d-flex flex-column flex-grow-1 w-100">
+            <div class="w-100 d-flex justify-content-between border-bottom">
+                <div class="d-flex align-items-center">
+                    <span class="text-white display-6">@username</span>
+                </div>
+                <div>
+                    <button class="btn btn-dark" @onclick="openOptionsModal">
+                        <span class="oi oi-cog text-white display-3" title="icon name" aria-hidden="true"></span>
+                    </button>
+                    <button class="btn btn-dark" @onclick="openAddFriendModal">
+                        <span class="oi oi-plus text-white display-3" title="icon name" aria-hidden="true"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="d-flex flex-column flex-grow-1 w-100">
+                @foreach(var conv in conversations)
+                {
+                    <button @onclick="() => openConversationView(conv.Id)" class="d-flex border-bottom align-items-center btn @((conv.LastMessage?.Read ?? true) ? "btn-dark" : "btn-secondary")">
+                        <span class="oi oi-person text-white display-6" title="icon name" aria-hidden="true"></span>
+                        <div class="ps-3 d-flex flex-column w-100 justify-content-center align-items-start">
+                            <span class="text-white ">@conv.Name</span>
+                            <span class="text-muted ">@conv.LastMessage?.Content</span>
+                        </div>
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    @if (conversation != null)
+    {
+        <div class="d-flex flex-grow-1 h-100">
+            <div class="d-flex flex-column flex-grow-1 w-100">
+                <div class="w-100 d-flex justify-content-between border-bottom">
+                    <div class="d-flex align-items-center">
+                        <span class="text-white display-6">@conversation.Username</span>
+                    </div>
+                    <div>
+                        <button class="btn btn-dark" @onclick="closeConversationView">
+                            <span class="oi oi-x text-white display-3" title="icon name" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="d-flex flex-column flex-grow-1 w-100">
+                    @foreach (var msg in conversation.Messages)
+                    {
+                        <div class="d-flex w-100 @(msg.User.UserName != username ? "justify-content-start" : "justify-content-end")">
+                            <div class="d-flex flex-column w-25">
+                                <span class="text-white ">@msg.Content // @msg.User.UserName</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+                <div class="w-100 d-flex border-bottom">
+                    <EditForm EditContext="@editContextMessage" OnSubmit="@HandleSubmitMessage" class="w-100 justify-content-center d-flex flex-column">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+                        <div class="form-group w-100 py-1">
+                            <label for="InputContent">Content</label>
+                            <InputText @bind-Value="messageForm.Content" type="text" class="form-control shadow-none" id="InpuContent" aria-describedby="contentHelper" placeholder="message..." />
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-3 mb-1 shadow-none">Send</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private Tokens tokens = new Tokens();
+    private string username;
+    private int conversationId = 0;
+    private bool optionsModal = false;
+    private bool addFriendModal = false;
+    private bool conversationView = false;
+    private FullConversationDto? conversation = null;
+    private HubConnection mainConnection;
+    private HubConnection? conversationConnection;
+    private IEnumerable<ConversationDto> conversations = new List<ConversationDto>();
+    private AddFriendForm addFriendForm = new AddFriendForm();
+    private MessageForm messageForm = new MessageForm();
+    private EditContext? editContextAddFriend;
+    private EditContext? editContextMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        editContextAddFriend = new(addFriendForm);
+        editContextMessage = new(messageForm);
+        tokens.BearerToken = await _localStorage.GetItemAsync<string>("Bearer");
+        tokens.RefreshToken = await _localStorage.GetItemAsync<string>("Refresh");
+        username = await _localStorage.GetItemAsync<string>("Username");
+        try
+        {
+            await CreateMainHub();
+            await mainConnection.SendAsync("GetConversations", username);
+        }
+        catch (Exception e)
+        {
+            await Reauthorize();
+        }
+    }
+
+    private async Task HandleSubmitMessage()
+    {
+        if (editContextMessage == null || !editContextMessage.Validate())
+        {
+            return;
+        }
+        try
+        {
+            await conversationConnection.SendAsync("CreateMessage", username, addFriendForm.Username, messageForm.Content, conversationId);
+        }
+        catch (Exception e)
+        {
+            await Reauthorize();
+        }
+    }
+
+    private async Task CreateMainHub()
+    {
+        mainConnection = new HubConnectionBuilder()
+            .WithUrl(AppSettings.Api.BaseUrl + "hub/main", options =>
+            {
+                options.AccessTokenProvider = () => Task.FromResult(tokens.BearerToken);
+            })
+            .Build();
+        await mainConnection.StartAsync();
+        mainConnection.On<IEnumerable<ConversationDto>>("GetConversations", (convs) =>
+        {
+            conversations = convs;
+            StateHasChanged();
+        });
+        mainConnection.On<ConversationDto>("CreateConversation", (conv) =>
+        {
+            conversations.Append(conv);
+            StateHasChanged();
+        });
+        mainConnection.On<Message, int>("CreateMessage", (message, convId) =>
+        {
+            conversations.Where(x => x.Id == convId).FirstOrDefault().LastMessage = message;
+            StateHasChanged();
+        });
+    }
+
+    private async Task CreateConversationHub()
+    {
+        conversationConnection = new HubConnectionBuilder()
+            .WithUrl(AppSettings.Api.BaseUrl + "hub/conversation", options =>
+            {
+                options.AccessTokenProvider = () => Task.FromResult(tokens.BearerToken);
+            })
+            .Build();
+        await conversationConnection.StartAsync();
+        conversationConnection.On<FullConversationDto>("GetConversation", (conv) =>
+        {
+            conversation = conv;
+            StateHasChanged();
+        });
+        conversationConnection.On<Message>("CreateMessage", (msg) =>
+        {
+            conversation.Messages.Append(msg);
+            StateHasChanged();
+        });
+    }
+
+    private async Task Reauthorize()
+    {
+        var refreshDto = new RefreshTokenDto
+            {
+                RefreshToken = tokens.RefreshToken
+            };
+        var bearer = await _http.PostWithReturn<RefreshTokenDto, BearerDto>(refreshDto, "User/Refresh");
+        if(bearer != null)
+        {
+            tokens.BearerToken = bearer.BearerToken;
+            await _localStorage.SetItemAsync("Bearer", tokens.BearerToken);
+            await mainConnection.StopAsync();
+            await CreateMainHub();
+            if(conversationConnection != null)
+            {
+                await conversationConnection.StopAsync();
+                await CreateConversationHub();
+            }
+            return;
+        }
+        else
+        {
+            await Logout();
+        }
+    }
+
+    private async Task HandleSubmitAddFriend()
+    {
+        if (editContextAddFriend == null || !editContextAddFriend.Validate())
+        {
+            return;
+        }
+        try
+        {
+            await mainConnection.SendAsync("CreateConversation", username, addFriendForm.Username);
+        }
+        catch (Exception e)
+        {
+            await Reauthorize();
+        }
+    }
+
+    private void openAddFriendModal()
+    {
+        addFriendModal = true;
+    }
+
+    private void closeAddFriendModal()
+    {
+        addFriendModal = false;
+    }
+
+    private void openOptionsModal()
+    {
+        optionsModal = true;
+    }
+
+
+    private void closeOptionsModal()
+    {
+        optionsModal = false;
+    }
+
+    private async Task openConversationView(int convId)
+    {
+        conversationId = convId;
+        try
+        {
+            await CreateConversationHub();
+            await conversationConnection.SendAsync("ConversationOnConnectedAsync", conversationId);
+            await conversationConnection.SendAsync("GetConversation", username, conversationId);
+        }
+        catch (Exception e)
+        {
+            await Reauthorize();
+        }
+        conversationView = true;
+    }
+
+    private async Task closeConversationView()
+    {
+        await conversationConnection.StopAsync();
+        conversationConnection = null;
+        conversationView = false;
+        conversationId = 0;
+    }
+
+    private async Task Logout()
+    {
+        await mainConnection.StopAsync();
+        if (conversationConnection != null)
+        {
+            await conversationConnection.StopAsync();
+        }
+        await _localStorage.RemoveItemAsync("Bearer");
+        await _localStorage.RemoveItemAsync("Refresh");
+        await _localStorage.RemoveItemAsync("LoggedIn");
+        await _localStorage.RemoveItemAsync("Username");
+        _navigationManager.NavigateTo("/");
+    }
+}

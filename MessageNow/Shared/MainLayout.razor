@@ -1,0 +1,14 @@
+﻿@inherits LayoutComponentBase
+@using Blazored.Toast.Configuration
+@using Blazored.Toast
+
+<div class="page">
+    <main>
+        <BlazoredToasts Position="ToastPosition.TopRight"
+                Timeout="10"
+                ShowProgressBar="true"/>
+        <article class="content p-0 vh-100 vw-100 bg-dark">
+            @Body
+        </article>
+    </main>
+</div>

@@ -1,0 +1,66 @@
+﻿@page "/Login"
+@using MessageNow.Models;
+@using MessageNow.Dtos;
+@using MessageNow.Services;
+@using Blazored.LocalStorage;
+@inject IHttpClientService _http
+@inject NavigationManager _navigationManager
+@inject ILocalStorageService _localStorage
+
+<PageTitle>MessageNow</PageTitle>
+<div class="d-flex bg-dark flex-grow-1 h-100 flex-column">
+    <div class="w-100">
+        <a href="/" class="btn btn-dark">
+            <span class="oi oi-arrow-thick-left text-white display-3" title="icon name" aria-hidden="true"></span>
+        </a>
+    </div>
+    <div class="d-flex flex-column flex-grow-1 justify-content-between align-items-center py-4 ">
+        <h1 class="text-white">Login</h1>
+        <div class="d-flex flex-column w-75">
+            <EditForm EditContext="@editContext" OnSubmit="@HandleSubmit" class="w-100 justify-content-center d-flex flex-column">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="form-group w-100 py-1">
+                    <label for="InputUsername">Username</label>
+                    <InputText @bind-Value="loginForm.Username" type="text" class="form-control shadow-none" id="InputUsername" aria-describedby="usernameHelper" placeholder="Username..." />
+                    <small id="usernameHelper" class="form-text text-muted">Required</small>
+                </div>
+                <div class="form-group w-100 py-1">
+                    <label for="InputPassword">Password</label>
+                    <InputText @bind-Value="loginForm.Password" type="password" class="form-control shadow-none" id="InputPassword" aria-describedby="passwordHelper" placeholder="Password..." />
+                    <small id="passwordHelper" class="form-text text-muted">Required</small>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3 mb-1 shadow-none">Login</button>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+
+@code {
+    private LoginForm loginForm = new LoginForm();
+    private EditContext? editContext;
+
+    protected override void OnInitialized()
+    {
+        editContext = new(loginForm);
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (editContext == null || !editContext.Validate())
+        {
+            return;
+        }
+        var tokens = await _http.PostWithReturn<LoginForm, TokensDto>(loginForm, "User/Login");
+        if (tokens == null)
+        {
+            return;
+        }
+        await _localStorage.SetItemAsync("Bearer", tokens.BearerToken);
+        await _localStorage.SetItemAsync("Refresh", tokens.RefreshToken);
+        await _localStorage.SetItemAsync("LoggedIn", true);
+        await _localStorage.SetItemAsync("Username", loginForm.Username);
+        _navigationManager.NavigateTo("/Main");
+    }
+}

@@ -1,0 +1,72 @@
+﻿@page "/Register"
+@using MessageNow.Models;
+@using MessageNow.Dtos;
+@using MessageNow.Services;
+@using Blazored.Toast.Services;
+@using Blazored.LocalStorage;
+@inject IHttpClientService _http
+@inject ILocalStorageService _localStorage
+@inject IToastService _toastService
+
+<PageTitle>MessageNow</PageTitle>
+<div class="d-flex bg-dark flex-grow-1 h-100 flex-column">
+    <div class="w-100">
+        <a href="/" class="btn btn-dark">
+            <span class="oi oi-arrow-thick-left text-white display-3" title="icon name" aria-hidden="true"></span>
+        </a>
+    </div>
+    <div class="d-flex flex-column flex-grow-1 justify-content-between align-items-center py-4 ">
+        <h1 class="text-white">Register</h1>
+        <div class="d-flex flex-column w-75">
+            <EditForm EditContext="@editContext" OnSubmit="@HandleSubmit" class="w-100 justify-content-center d-flex flex-column">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="form-group w-100 py-1">
+                    <label for="InputUsername">Username</label>
+                    <InputText @bind-Value="registerForm.Username" type="text" class="form-control shadow-none" id="InputUsername" aria-describedby="usernameHelper" placeholder="Username..." />
+                    <small id="usernameHelper" class="form-text text-muted">Required</small>
+                </div>
+                <div class="form-group w-100 py-1">
+                    <label for="InputEmail">Email</label>
+                    <InputText @bind-Value="registerForm.Email" type="text" class="form-control shadow-none" id="InputEmail" aria-describedby="emailHelper" placeholder="Email..." />
+                    <small id="emailHelper" class="form-text text-muted">Required</small>
+                </div>
+                <div class="form-group w-100 py-1">
+                    <label for="InputPassword">Password</label>
+                    <InputText @bind-Value="registerForm.Password" type="password" class="form-control shadow-none" id="InputPassword" aria-describedby="passwordHelper" placeholder="Password..." />
+                    <small id="passwordHelper" class="form-text text-muted">Required (minimum 8 characters long, 1 Uppercase letter, 1 nonalphanumerical character)</small>
+                </div>
+                <div class="form-group w-100 py-1">
+                    <label for="InputConfirmPassword">Confirm password</label>
+                    <InputText @bind-Value="registerForm.ConfirmPassword" type="password" class="form-control shadow-none" id="InputConfirmPassword" aria-describedby="confirmPasswordHelper" placeholder="Password..." />
+                    <small id="confirmPasswordHelper" class="form-text text-muted">Required</small>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3 mb-1 shadow-none">Register</button>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+
+@code {
+    private RegisterForm registerForm = new RegisterForm();
+    private EditContext? editContext;
+
+    protected override void OnInitialized()
+    {
+        editContext = new(registerForm);
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (editContext == null || !editContext.Validate())
+        {
+            return;
+        }
+        var success = await _http.Post<RegisterForm>(registerForm, "User/Register");
+        if (success)
+        {
+            _toastService.ShowSuccess("Registration succeeded! Now you can login.");
+        }
+    }
+}

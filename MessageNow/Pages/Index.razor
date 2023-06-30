@@ -1,0 +1,27 @@
+﻿@page "/"
+@using Blazored.LocalStorage;
+@inject ILocalStorageService _localStorage
+@inject NavigationManager _navigationManager
+
+<PageTitle>MessageNow</PageTitle>
+<div class="d-flex bg-dark flex-grow-1 h-100">
+    <div class="d-flex flex-column flex-grow-1 justify-content-evenly align-items-center ">
+        <h1 class="text-white">MessageNow</h1>
+        <div class="d-flex flex-column w-75">
+            <a class="btn btn-primary w-100 my-4" href="/Login">Login</a>
+            <a class="btn btn-primary w-100 my-4" href="/Register">Register</a>
+        </div>
+    </div>
+</div>
+
+@code {
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await _localStorage.GetItemAsync<bool>("LoggedIn"))
+        {
+            _navigationManager.NavigateTo("/Main");
+        }
+    }
+
+}
